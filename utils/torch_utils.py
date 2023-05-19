@@ -138,6 +138,8 @@ def select_device(device='', batch_size=0, newline=True):
     if not newline:
         s = s.rstrip()
     LOGGER.info(s)
+    LOGGER.info('[select_device ------------------------------>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ]');
+    LOGGER.info(arg);
     return torch.device(arg)
 
 
