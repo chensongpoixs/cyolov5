@@ -25,6 +25,10 @@
 from pathlib import Path
 import  os;
 #import  Path;
+pic_set = set([ ]);
+
+
+pic_size = [0, 1];
 
 def visdrone2yolo(dir):
   from PIL import Image
@@ -46,37 +50,46 @@ def visdrone2yolo(dir):
   ##return;
 
   (dir / 'labels').mkdir(parents=True, exist_ok=True)  # make labels directory
-  pbar = tqdm((dir / str('gt')).glob('*.txt'), desc=f'Converting {dir}')
-  for f in pbar:
-      img_size = Image.open((dir / 'images' / f.name).with_suffix('.jpg')).size
+  pbar = tqdm((dir / str('gt')).glob('*.txt'), desc=f'Converting {dir}');
 
-      print(img_size);
+
+
+
+  for f in pbar:
+      img_size = Image.open((dir / 'images' / f.name).with_suffix('.jpg')).size;
+      # if img_size[0] > 1920:
+      pic_set.update(set([ img_size]));
+      # temp_size = pic_size;
+      if img_size[0] > pic_size[0]:
+            pic_size[0] = img_size[0];
+      #break;
+      # print(pic_set);
 
       #106 114 24 25 1 0
-      lines = []
-      with open(f, 'r') as file:  # read annotation.txt
-          # print('[warr][file = ' + str(file) + '[f.name = ' + str(dir / 'images' / f.name));
-          for row in [x.split(' ') for x in file.read().strip().splitlines()]:
-              #if row[4] == '0':  # VisDrone 'ignored regions' class 0
-              #    continue
-              cls = 0;
-              box = convert_box(img_size, tuple(map(int, row[:4])))
-              # print(str(row) + " --- " + str(box));
-              lines.append(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n")
-
-#               fcount = 0;
-#               for fx in box :
-#                   fcount += fx;
-#               print(img_size);
-#               if fcount > 1.:
-#                   print(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
-#                   print('[warr][file = '+str(file)+ '[f.name = ]'+str(f.name)+ str(img_size)+ '---->fcount = '+ str(fcount) + '] [row = '+str(row)+']');
-#              #else:
-#              #    print(f"info-->{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
-# #
-
-              with open(str(f).replace(os.sep + 'gt' + os.sep, os.sep + 'labels' + os.sep), 'w') as fl:
-                  fl.writelines(lines)  # write label.txt
+#       lines = []
+#       with open(f, 'r') as file:  # read annotation.txt
+#           # print('[warr][file = ' + str(file) + '[f.name = ' + str(dir / 'images' / f.name));
+#           for row in [x.split(' ') for x in file.read().strip().splitlines()]:
+#               #if row[4] == '0':  # VisDrone 'ignored regions' class 0
+#               #    continue
+#               cls = 0;
+#               box = convert_box(img_size, tuple(map(int, row[:4])))
+#               # print(str(row) + " --- " + str(box));
+#               lines.append(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n")
+#
+# #               fcount = 0;
+# #               for fx in box :
+# #                   fcount += fx;
+# #               print(img_size);
+# #               if fcount > 1.:
+# #                   print(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
+# #                   print('[warr][file = '+str(file)+ '[f.name = ]'+str(f.name)+ str(img_size)+ '---->fcount = '+ str(fcount) + '] [row = '+str(row)+']');
+# #              #else:
+# #              #    print(f"info-->{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
+# # #
+#
+#               with open(str(f).replace(os.sep + 'gt' + os.sep, os.sep + 'labels' + os.sep), 'w') as fl:
+#                   fl.writelines(lines)  # write label.txt
 
 
 # Download
@@ -90,3 +103,10 @@ print(dir);
 # Convert
 for d in 'val', 'train', 'test':
    visdrone2yolo(dir / d);  # convert VisDrone annotations to YOLO labels
+
+
+
+print(pic_set);
+
+print('size > 2000 ===> ', pic_size);
+print(len(pic_set));

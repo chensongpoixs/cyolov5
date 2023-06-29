@@ -350,6 +350,7 @@ class LoadStreams:
         sources = Path(sources).read_text().rsplit() if os.path.isfile(sources) else [sources]
         n = len(sources)
         self.sources = [clean_str(x) for x in sources]  # clean source names for later
+        LOGGER.info('-------- > self.sources == ' +  str(self.sources));
         self.imgs, self.fps, self.frames, self.threads = [None] * n, [0] * n, [0] * n, [None] * n
         for i, s in enumerate(sources):  # index, source
             # Start thread to read frames from video stream
@@ -370,12 +371,12 @@ class LoadStreams:
             fps = cap.get(cv2.CAP_PROP_FPS)  # warning: may return 0 or nan
             self.frames[i] = max(int(cap.get(cv2.CAP_PROP_FRAME_COUNT)), 0) or float('inf')  # infinite stream fallback
             self.fps[i] = max((fps if math.isfinite(fps) else 0) % 100, 0) or 30  # 30 FPS fallback
-
+            LOGGER.info(' i == ' + str(i) );
             _, self.imgs[i] = cap.read()  # guarantee first frame
             self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             LOGGER.info(f'{st} Success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)')
             self.threads[i].start()
-        LOGGER.info('')  # newline
+        LOGGER.info('----> i = ' + str(i))  # newline
 
         # check for common shapes
         s = np.stack([letterbox(x, img_size, stride=stride, auto=auto)[0].shape for x in self.imgs])
@@ -413,8 +414,10 @@ class LoadStreams:
 
         im0 = self.imgs.copy()
         if self.transforms:
+            # LOGGER.info('self.transforms = ' + str(self.transforms));
             im = np.stack([self.transforms(x) for x in im0])  # transforms
         else:
+            # LOGGER.info('else ---> self.transforms = ' + str(self.transforms));
             im = np.stack([letterbox(x, self.img_size, stride=self.stride, auto=self.auto)[0] for x in im0])  # resize
             im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW
             im = np.ascontiguousarray(im)  # contiguous
@@ -422,6 +425,7 @@ class LoadStreams:
         return self.sources, im, im0, None, ''
 
     def __len__(self):
+        LOGGER.info('len(self.sources) == ' + str(len(self.sources)));
         return len(self.sources)  # 1E12 frames = 32 streams at 30 FPS for 30 years
 
 
@@ -992,8 +996,14 @@ def verify_image_label(args):
     # Verify one image-label pair
     im_file, lb_file, prefix = args
     nm, nf, ne, nc, msg, segments = 0, 0, 0, 0, '', []  # number (missing, found, empty, corrupt), message, segments
+   # LOGGER.info('===========###=im_file==============');
+  #  LOGGER.info(im_file);
+  #  LOGGER.info('=========###===lb_file==============')
+   # LOGGER.info(lb_file);
     try:
         # verify images
+       # LOGGER.info('============im_file==============');
+        #LOGGER.info(im_file);
         im = Image.open(im_file)
         im.verify()  # PIL verify
         shape = exif_size(im)  # image size
@@ -1007,20 +1017,25 @@ def verify_image_label(args):
                     msg = f'{prefix}WARNING ⚠️ {im_file}: corrupt JPEG restored and saved'
 
         # verify labels
+      #  LOGGER.info('============lb_file==============')
+      #  LOGGER.info(lb_file);
         if os.path.isfile(lb_file):
             nf = 1  # label found
             with open(lb_file) as f:
                 lb = [x.split() for x in f.read().strip().splitlines() if len(x)]
                 if any(len(x) > 6 for x in lb):  # is segment
                     classes = np.array([x[0] for x in lb], dtype=np.float32)
+                   # LOGGER.info('====');
+
                     segments = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in lb]  # (cls, xy1...)
+                   # LOGGER.info(segments);
                     lb = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
                 lb = np.array(lb, dtype=np.float32)
             nl = len(lb)
             if nl:
                 assert lb.shape[1] == 5, f'labels require 5 columns, {lb.shape[1]} columns detected'
                 assert (lb >= 0).all(), f'negative label values {lb[lb < 0]}'
-                assert (lb[:, 1:] <= 1).all(), f'non-normalized or out of bounds coordinates {lb[:, 1:][lb[:, 1:] > 1]}'
+                assert (lb[:, 1:] <= 1).all(), f'----non-normalized or out of bounds coordinates {lb[:, 1:][lb[:, 1:] > 1]}classes = {classes},segments={segments}'
                 _, i = np.unique(lb, axis=0, return_index=True)
                 if len(i) < nl:  # duplicate row check
                     lb = lb[i]  # remove duplicates

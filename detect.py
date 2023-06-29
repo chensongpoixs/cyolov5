@@ -35,6 +35,31 @@ import sys
 from pathlib import Path
 
 import torch
+import pytesseract
+from PIL import Image
+import cv2
+pytesseract.pytesseract.tesseract_cmd = 'D:\\Tesseract-OCR\\tesseract.exe'
+
+
+# from os.path import join
+# from .config.settings import _DEFAULT_FOLDER_
+
+
+###########
+# 导入opencv库
+import cv2
+# 导入依赖包
+import hyperlpr3 as lpr3
+
+# 实例化识别对象
+# inference: int = INFER_ONNX_RUNTIME,
+#                  folder: str = _DEFAULT_FOLDER_,
+#                  detect_level: int = DETECT_LEVEL_LOW,
+# lpr3.INFER_ONNX_RUNTIME,  , lpr3.DETECT_LEVEL_HIGH
+
+catcher = lpr3.LicensePlateCatcher();
+
+##########
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -103,11 +128,14 @@ def run(
     bs = 1  # batch_size
     if webcam:
         view_img = check_imshow(warn=True)
+        # print('webcam --->');
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
         bs = len(dataset)
     elif screenshot:
+        # print('screenshot --->');
         dataset = LoadScreenshots(source, img_size=imgsz, stride=stride, auto=pt)
     else:
+        # print('else --->');
         dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt, vid_stride=vid_stride)
     vid_path, vid_writer = [None] * bs, [None] * bs
 
@@ -115,6 +143,9 @@ def run(
     model.warmup(imgsz=(1 if pt or model.triton else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
     for path, im, im0s, vid_cap, s in dataset:
+        # 去遍历图片，此时在dataloader中进行的是209到216部分，进行计数，
+        # 这里的path是指路径，im是指resize后的图片，im0是指原始图片，vid_cap=None，s是代表打印的信息
+        # 以下部分是做预处理
         with dt[0]:
             im = torch.from_numpy(im).to(model.device)
             im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
@@ -125,17 +156,32 @@ def run(
         # Inference
         with dt[1]:
             visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
-            pred = model(im, augment=augment, visualize=visualize)
+            # LOGGER.info('====>>>> dt[1] start ');
+            pred = model(im, augment=augment, visualize=visualize);
+            # LOGGER.info(str(pred));
+            # LOGGER.info('====>>>> dt[1] end ');
 
         # NMS
         with dt[2]:
+            # NMS非极大值抑制
+            # Apply NMS  进行NMS
+            # conf_thres: 置信度阈值
+            # iou_thres: iou阈值
+            # classes: 是否只保留特定的类别 默认为None
+            # agnostic_nms: 进行nms是否也去除不同类别之间的框
+            # max_det: 每张图片的最大目标个数 默认1000
+            # pred: [num_obj, 6] = [5, 6]   这里的预测信息pred还是相对于 img_size(640) 的
+            # LOGGER.info('classes =====> ' + str(classes));
             pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+            # LOGGER.info(str(pred));
+            # LOGGER.info('classes =====> end -->' + str(classes));
 
         # Second-stage classifier (optional)
-        # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
-
+        ## pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
+        # LOGGER.info('pred === > ' + str(pred));
         # Process predictions
         for i, det in enumerate(pred):  # per image
+            # LOGGER.info('[enumerate ---> i = '+str(i)+'] det = ' +str(det));
             seen += 1
             if webcam:  # batch_size >= 1
                 p, im0, frame = path[i], im0s[i].copy(), dataset.count
@@ -154,6 +200,7 @@ def run(
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], im0.shape).round()
 
+                # LOGGER.info(det);
                 # Print results
                 for c in det[:, 5].unique():
                     n = (det[:, 5] == c).sum()  # detections per class
@@ -169,6 +216,32 @@ def run(
 
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
+                        if c == 0:
+
+                          print('------------>>>>> licelist --->>>>' + str(int(xyxy[0])) +'---'+ str(int(xyxy[1])) + '======' + str(int(xyxy[2])) +'---'+ str(int(xyxy[3])));
+                          """OCR识别"""
+                          # ocr_rect = (int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3]));
+                          ocr_img = imc[int(xyxy[1]): int(xyxy[3]), int(xyxy[0]): int(xyxy[2])];
+                          # text = pytesseract.image_to_string(ocr_img, config='--psm 11');
+                          plates = catcher(ocr_img)
+
+                          print("车牌结果：", plates);
+                          # cv2.imwrite( "ocr.jpg", ocr_img);
+                          # cv2.imshow("OCR", ocr_img);
+                          # cv2.waitKey(0);
+                        # cv2.imshow("OCR", save_crop);
+                        # cv2.waitKey(0);
+                            # text = pytesseract.image_to_string(img,   lang='chi_sim');#psm 12
+                            # print("车牌结果：", text);
+
+                        # if (conf < 0.3):
+                        #     LOGGER.info('------------');
+                        #     LOGGER.info(str(conf));
+                        #     LOGGER.info('===========');
+                        #     continue; #
+                       # if c == 3:
+                          # 车牌识别逻辑
+
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
                     if save_crop:

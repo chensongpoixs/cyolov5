@@ -329,7 +329,7 @@ class DetectMultiBackend(nn.Module):
         #   TensorFlow Edge TPU:            *_edgetpu.tflite
         #   PaddlePaddle:                   *_paddle_model
         from models.experimental import attempt_download, attempt_load  # scoped to avoid circular import
-
+        # LOGGER.info('DetectMultiBackend ---> init');
         super().__init__()
         w = str(weights[0] if isinstance(weights, list) else weights)
         pt, jit, onnx, xml, engine, coreml, saved_model, pb, tflite, edgetpu, tfjs, paddle, triton = self._model_type(w)
@@ -347,7 +347,7 @@ class DetectMultiBackend(nn.Module):
             model.half() if fp16 else model.float()
             self.model = model  # explicitly assign for to(), cpu(), cuda(), half()
         elif jit:  # TorchScript
-            LOGGER.info(f'Loading {w} for TorchScript inference...')
+            # LOGGER.info(f'Loading {w} for TorchScript inference...')
             extra_files = {'config.txt': ''}  # model metadata
             model = torch.jit.load(w, _extra_files=extra_files, map_location=device)
             model.half() if fp16 else model.float()
@@ -504,6 +504,7 @@ class DetectMultiBackend(nn.Module):
         self.__dict__.update(locals())  # assign all variables to self
 
     def forward(self, im, augment=False, visualize=False):
+        # LOGGER.info('DetectMultiBackend ---> forward');
         # YOLOv5 MultiBackend inference
         b, ch, h, w = im.shape  # batch, channel, height, width
         if self.fp16 and im.dtype != torch.float16:
@@ -586,18 +587,22 @@ class DetectMultiBackend(nn.Module):
             return self.from_numpy(y)
 
     def from_numpy(self, x):
+        # LOGGER.info('DetectMultiBackend ---> from_numpy');
         return torch.from_numpy(x).to(self.device) if isinstance(x, np.ndarray) else x
 
     def warmup(self, imgsz=(1, 3, 640, 640)):
+        # LOGGER.info('DetectMultiBackend ---> warmup');
         # Warmup model by running inference once
         warmup_types = self.pt, self.jit, self.onnx, self.engine, self.saved_model, self.pb, self.triton
         if any(warmup_types) and (self.device.type != 'cpu' or self.triton):
+            LOGGER.info('warmup_types ---> = '+str(warmup_types));
             im = torch.empty(*imgsz, dtype=torch.half if self.fp16 else torch.float, device=self.device)  # input
             for _ in range(2 if self.jit else 1):  #
                 self.forward(im)  # warmup
 
     @staticmethod
     def _model_type(p='path/to/model.pt'):
+        LOGGER.info('DetectMultiBackend ---> _model_type');
         # Return model type from model path, i.e. path='path/to/model.onnx' -> type=onnx
         # types = [pt, jit, onnx, xml, engine, coreml, saved_model, pb, tflite, edgetpu, tfjs, paddle]
         from export import export_formats
@@ -613,6 +618,7 @@ class DetectMultiBackend(nn.Module):
 
     @staticmethod
     def _load_metadata(f=Path('path/to/meta.yaml')):
+        LOGGER.info('DetectMultiBackend ---> _load_metadata');
         # Load metadata from meta.yaml if it exists
         if f.exists():
             d = yaml_load(f)

@@ -30,17 +30,11 @@ def visdrone2yolo(dir):
   from PIL import Image
   from tqdm import tqdm
 
-  print(dir);
   def convert_box(size, box):
       # Convert VisDrone box to YOLO xywh box
       dw = 1. / size[0]
       dh = 1. / size[1]
-      # 每张图片对应的txt文件中，数据格式是：cls_id x y w h 其中坐标(x,y)是中心点坐标，并且是相对于图片宽高的比例值 ，并非绝对坐标。
-      #
-      # 新版本的yolov5中已经集成了训练visdrone数据集的配置文件，其中附带了数据集的处理方式，主要
-      #print(str(box) + " --- x = " +  str((box[0] + box[2] / 2)) + ",  y = " +  str(box[1] + box[3]   / 2));
-      return  box[0]    * dw,  box[1]  * dh, box[2] * dw, box[3] * dh
-      # return (( box[0]    + (box[2]  / 2))) * dw, ( box[1] + (box[3]   / 2)) * dh, box[2] * dw, box[3] * dh;
+      return (box[0] + box[2] / 2) * dw, (box[1] + box[3] / 2) * dh, box[2] * dw, box[3] * dh;
 
   ##print(dir);
   ##return;
@@ -49,44 +43,40 @@ def visdrone2yolo(dir):
   pbar = tqdm((dir / str('gt')).glob('*.txt'), desc=f'Converting {dir}')
   for f in pbar:
       img_size = Image.open((dir / 'images' / f.name).with_suffix('.jpg')).size
-
       print(img_size);
-
       #106 114 24 25 1 0
       lines = []
       with open(f, 'r') as file:  # read annotation.txt
-          # print('[warr][file = ' + str(file) + '[f.name = ' + str(dir / 'images' / f.name));
-          for row in [x.split(' ') for x in file.read().strip().splitlines()]:
+          for row in [x.split(',') for x in file.read().strip().splitlines()]:
               #if row[4] == '0':  # VisDrone 'ignored regions' class 0
               #    continue
               cls = 0;
               box = convert_box(img_size, tuple(map(int, row[:4])))
-              # print(str(row) + " --- " + str(box));
               lines.append(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n")
 
-#               fcount = 0;
-#               for fx in box :
-#                   fcount += fx;
-#               print(img_size);
-#               if fcount > 1.:
-#                   print(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
-#                   print('[warr][file = '+str(file)+ '[f.name = ]'+str(f.name)+ str(img_size)+ '---->fcount = '+ str(fcount) + '] [row = '+str(row)+']');
-#              #else:
-#              #    print(f"info-->{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
-# #
+              fcount = 0;
+              for fx in box :
+                  fcount += fx;
+
+              if fcount > 1.:
+                  print(f"{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
+                  print('[warr][file = '+str(file)+']---->fcount = '+ str(fcount) + '] [row = '+str(row)+']');
+              else:
+                  print(f"info-->{cls} {' '.join(f'{x:.6f}' for x in box)}\n");
+
 
               with open(str(f).replace(os.sep + 'gt' + os.sep, os.sep + 'labels' + os.sep), 'w') as fl:
                   fl.writelines(lines)  # write label.txt
 
 
 # Download
-dir = Path('D:/Work/cartificial_intelligence/datasets/JHU-CROWD/jhu_crowd_v2.0') ; # dataset root dir
+# dir = Path('D:/Work/cartificial_intelligence/datasets/JHU-CROWD/jhu_crowd_v2.0') ; # dataset root dir
 #urls = ['https://github.com/ultralytics/yolov5/releases/download/v1.0/VisDrone2019-DET-train.zip' ]
 #download(urls, dir=dir, curl=True, threads=4)
-#dir = Path('./test/jhu_crowd') ; # dataset root dir
+dir = Path('./test/wu') ; # dataset root dir
 print(dir);
-#visdrone2yolo(dir / 'train');
+visdrone2yolo(dir / 'train');
 #visdrone2yolo(dir  );
 # Convert
-for d in 'val', 'train', 'test':
-   visdrone2yolo(dir / d);  # convert VisDrone annotations to YOLO labels
+# for d in 'val', 'train', 'test':
+#   visdrone2yolo(dir / d);  # convert VisDrone annotations to YOLO labels
